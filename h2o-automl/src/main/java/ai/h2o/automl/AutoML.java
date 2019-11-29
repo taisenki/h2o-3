@@ -12,6 +12,7 @@ import water.exceptions.H2OIllegalArgumentException;
 import water.fvec.Frame;
 import water.fvec.Vec;
 import water.nbhm.NonBlockingHashMap;
+import water.util.ArrayUtils;
 import water.util.Countdown;
 import water.util.Log;
 import water.util.PrettyPrint;

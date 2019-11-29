@@ -4,10 +4,13 @@ import ai.h2o.automl.AutoMLBuildSpec.AutoMLCustomParameters;
 import ai.h2o.automl.EventLogEntry.Stage;
 import ai.h2o.automl.WorkAllocations.JobType;
 import ai.h2o.automl.WorkAllocations.Work;
+import ai.h2o.automl.targetencoder.AutoMLTargetEncodingAssistant;
+import ai.h2o.automl.targetencoder.TargetEncodingParams;
 import hex.Model;
 import hex.Model.Parameters.FoldAssignmentScheme;
 import hex.ModelBuilder;
 import hex.ScoreKeeper.StoppingMetric;
+import hex.deeplearning.DeepLearning;
 import hex.ensemble.StackedEnsembleModel;
 import hex.grid.Grid;
 import hex.grid.GridSearch;
@@ -16,6 +19,8 @@ import water.Iced;
 import water.Job;
 import water.Key;
 import water.exceptions.H2OIllegalArgumentException;
+import water.fvec.Frame;
+import water.util.ArrayUtils;
 import water.util.EnumUtils;
 import water.util.Log;
 
@@ -249,6 +254,44 @@ public abstract class ModelingStep<M extends Model> extends Iced<ModelingStep> {
             else
                 builder._parms._max_runtime_secs = Math.min(builder._parms._max_runtime_secs, aml().timeRemainingMs() / 1e3);
 
+            AutoMLBuildSpec buildSpec = aml().getBuildSpec();
+            if (buildSpec.te_spec.enabled) {
+                // NOTE: here we will also affect `_buildSpec.input_spec.ignored_columns`. We will switch it back below in `finally` block after model is trained.
+                String[] originalIgnoredColumns = buildSpec.input_spec.ignored_columns == null ? null : buildSpec.input_spec.ignored_columns.clone(); //TODO test
+
+                Frame trainMBBeforeTE = builder.train();
+
+                try {
+                    performTargetEncoding(builder, buildSpec, aml());
+                    return runModelTrainingWithTEJob(key, algoName, builder, originalIgnoredColumns, trainMBBeforeTE, buildSpec, aml());
+                } catch (AutoMLTargetEncodingAssistant.NoColumnsToEncodeException ex) {
+                    Log.info("Target encoding is enabled but there were no columns found to apply encoding to. Falling back to execution without TE.");
+                    //TODO we need to make sure that builder is in a state that was before we tried to apply TE. It is most likely not the case now. Consider deep copy of ModelBuilder.
+                    return runModelTrainingJob(key, algoName, builder);
+                }
+            } else {
+                return runModelTrainingJob(key, algoName, builder);
+            }
+        }
+
+        public TargetEncodingParams _bestTEParams;
+
+        private void performTargetEncoding(ModelBuilder modelBuilder, AutoMLBuildSpec buildSpec, AutoML aml) throws AutoMLTargetEncodingAssistant.NoColumnsToEncodeException {
+
+            AutoMLTargetEncodingAssistant teAssistant = new AutoMLTargetEncodingAssistant(aml.getTrainingFrame(),
+                    aml.getValidationFrame(),
+                    aml.getLeaderboardFrame(),
+                    buildSpec,
+                    modelBuilder);
+
+            teAssistant.init();
+
+            teAssistant.performAutoTargetEncoding();
+
+            _bestTEParams = teAssistant.getBestTEParams();
+        }
+
+        private Job<M> runModelTrainingJob(Key<M> key, String algoName, ModelBuilder builder) {
             aml().eventLog().info(Stage.ModelTraining, "AutoML: starting "+key+" model training");
             builder.init(false);          // validate parameters
             Log.debug("Training model: " + algoName + ", time remaining (ms): " + aml().timeRemainingMs());
@@ -260,6 +303,55 @@ public abstract class ModelingStep<M extends Model> extends Iced<ModelingStep> {
             }
         }
 
+        private Job<M> runModelTrainingWithTEJob(Key<M> key, String algoName,
+                                                 ModelBuilder builder,
+                                                 String[] originalIgnoredColumns,
+                                                 Frame trainMBBeforeTE,
+                                                 AutoMLBuildSpec buildSpec,
+                                                 AutoML aml) {
+            Frame trainMBAfterTE = builder.train();
+
+            // We are changing `ignored_columns` in `performTargetEncoding` method
+            builder._parms._ignored_columns = buildSpec.input_spec.ignored_columns; //TODO maybe it is better to directly change builder from assistant
+
+            Log.debug("Training model: " + algoName + ", time remaining (ms): " + aml.timeRemainingMs());
+            Job trainingModelJob = null;
+            try {
+                trainingModelJob = builder.trainModelOnH2ONode();
+                return trainingModelJob;
+            } catch (H2OIllegalArgumentException exception) {
+                aml().eventLog().warn(Stage.ModelTraining, "Skipping training of model " + key + " due to exception: " + exception);
+                return null;
+            } finally {
+                //TODO we have to block and only then remove data with te encodings.
+                // This is bad and we probably want to use something like Future but still our object is not immutable and we can't proceed before cleaning up.
+                trainingModelJob.get();
+
+                // Now we need to remove what we have added during TE to original data of current model builder
+                if (trainMBAfterTE.numRows() != trainMBBeforeTE.numRows()) // Only when we change training frame by setting it to another one ( e.g. when holdout strategy is NONE)
+                    trainMBAfterTE.delete();
+                else if (builder instanceof DeepLearning) { // DeepLearning change training data in the builder so we need to remove what DL has overwritten without caring to cleanup.
+                    if (aml.getLeaderboardFrame() != null)  // Validation frame case
+                        trainMBAfterTE.delete();
+                    else { // CV case
+                        removeTEColumnsFrom(originalIgnoredColumns, trainMBAfterTE, buildSpec);
+                    }
+                } else {
+                    removeTEColumnsFrom(originalIgnoredColumns, builder.train(), buildSpec);
+                }
+                builder.setTrain(trainMBBeforeTE);
+                buildSpec.input_spec.ignored_columns = originalIgnoredColumns;
+            }
+        }
+
+
+        private void removeTEColumnsFrom(String[] originalIgnoredColumns, Frame train, AutoMLBuildSpec buildSpec) {
+            String[] teColumns = ArrayUtils.difference(buildSpec.input_spec.ignored_columns, originalIgnoredColumns);
+            for (String teColumn : teColumns) {
+                if (train.vec(teColumn + "_te") != null)
+                    train.remove(teColumn + "_te").remove();
+            }
+        }
     }
 
     /**
