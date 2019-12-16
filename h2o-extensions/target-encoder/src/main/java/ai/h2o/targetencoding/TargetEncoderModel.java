@@ -12,6 +12,7 @@ import water.udf.CFuncRef;
 import water.util.IcedHashMapGeneric;
 import water.util.TwoDimTable;
 
+import java.util.Arrays;
 import java.util.Map;
 
 public class TargetEncoderModel extends Model<TargetEncoderModel, TargetEncoderModel.TargetEncoderParameters, TargetEncoderModel.TargetEncoderOutput> {
@@ -59,6 +60,22 @@ public class TargetEncoderModel extends Model<TargetEncoderModel, TargetEncoderM
 
     public BlendingParams getBlendingParameters() {
       return _k!=0 && _f!=0 ? new BlendingParams(_k, _f) : TargetEncoder.DEFAULT_BLENDING_PARAMS;
+    }
+
+    @Override
+    public String toString() {
+      String representation = null;
+      if (_blending) {
+        representation = "TE params: "
+                + "holdout_type = " + _data_leakage_handling
+                + ", blending = " + _blending
+                + ", inflection_point = " + _k
+                + ", smoothing = " + _f
+                + ", noise_level = " + _noise_level;
+      } else {
+        representation = "TE params: holdout_type = " + _data_leakage_handling + " , noise_level = " + _noise_level;
+      }
+      return representation;
     }
   }
 

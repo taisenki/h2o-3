@@ -1,5 +1,6 @@
 package ai.h2o.targetencoding.strategy;
 
+import ai.h2o.targetencoding.TargetEncoder;
 import ai.h2o.targetencoding.TargetEncoderModel;
 import hex.grid.HyperSpaceSearchCriteria;
 import hex.grid.HyperSpaceWalker;
@@ -31,7 +32,8 @@ public class TargetEncoderRGSTest extends TestUtil {
       hpGrid.put("noise_level", new Double[]{0.0, 0.01,  0.1});
       hpGrid.put("k", new Double[]{1.0, 2.0, 3.0});
       hpGrid.put("f", new Double[]{5.0, 10.0, 20.0});
-      
+      hpGrid.put("data_leakage_handling", new TargetEncoder.DataLeakageHandlingStrategy[]{TargetEncoder.DataLeakageHandlingStrategy.KFold, TargetEncoder.DataLeakageHandlingStrategy.LeaveOneOut, TargetEncoder.DataLeakageHandlingStrategy.None});
+
       TargetEncoderModel.TargetEncoderParameters parameters = new TargetEncoderModel.TargetEncoderParameters();
 
       GridSearchHandler.DefaultModelParametersBuilderFactory<TargetEncoderModel.TargetEncoderParameters, TargetEncoderV3.TargetEncoderParametersV3> modelParametersBuilderFactory = new GridSearchHandler.DefaultModelParametersBuilderFactory<>();
@@ -46,7 +48,7 @@ public class TargetEncoderRGSTest extends TestUtil {
         System.out.println( targetEncoderParameters._blending + ":" +  targetEncoderParameters._noise_level + ":" +  targetEncoderParameters._k + ":" +  targetEncoderParameters._f);
         count++;
       }
-      assertEquals("Unexpected number of grid items", 54, count);
+      assertEquals("Unexpected number of grid items", 162, count);
     } finally {
       Scope.exit();
     }
