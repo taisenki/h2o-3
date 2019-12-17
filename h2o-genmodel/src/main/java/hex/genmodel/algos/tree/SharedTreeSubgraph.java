@@ -131,9 +131,9 @@ public class SharedTreeSubgraph {
     rootNode.printEdges();
   }
 
-  void printDot(PrintStream os, int maxLevelsToPrintPerEdge, boolean detail, String optionalTitle, PrintMojo.PrintTreeOptions treeOptions) {
+  public void printDot(PrintStream os, int maxLevelsToPrintPerEdge, boolean detail, String optionalTitle, PrintMojo.PrintTreeOptions treeOptions, boolean forPng) {
     os.println("");
-    os.println("subgraph " + "cluster_" + subgraphNumber + " {");
+    os.println((forPng ? "digraph ": "subgraph " + "cluster_") + subgraphNumber + " {");
     os.println("/* Nodes */");
 
     int maxLevel = -1;

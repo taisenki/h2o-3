@@ -71,7 +71,7 @@ public class SharedTreeGraph {
     os.println("");
     os.println("digraph G {");
     for (SharedTreeSubgraph sg : subgraphArray) {
-      sg.printDot(os, maxLevelsToPrintPerEdge, detail, optionalTitle, treeOptions);
+      sg.printDot(os, maxLevelsToPrintPerEdge, detail, optionalTitle, treeOptions, false);
     }
     os.println("");
     os.println("}");
