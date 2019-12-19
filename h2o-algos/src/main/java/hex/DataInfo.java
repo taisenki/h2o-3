@@ -1,7 +1,10 @@
 package hex;
 
 import water.*;
-import water.fvec.*;
+import water.fvec.Chunk;
+import water.fvec.Frame;
+import water.fvec.InteractionWrappedVec;
+import water.fvec.Vec;
 import water.util.ArrayUtils;
 
 import java.util.ArrayList;
@@ -499,19 +502,19 @@ public class DataInfo extends Keyed<DataInfo> {
       catLvls = cs;
     }
 
-    // now do the interaction vecs -- these happen to always sit first in the "nums" section of _adaptedFrame
-    // also, these have the exact same filtering logic as the categoricals above
+    // now do the interaction vecs -- this happens to always sit first in the "nums" section of _adaptedFrame
+    // if we have enum and num interactions.  These have the exact same filtering logic as the categoricals above
     int prev=j=0; // reset j for _numOffsets
-    if( _interactionVecs!=null ) {
-      while( i < cols.length && cols[i] < _numOffsets[intLvls.length]) {
-        int[] lvls = MemoryManager.malloc4(_numOffsets[j+1] - _numOffsets[j]);
-        int k=0; // same as above
-        while(i<cols.length && cols[i] < _numOffsets[j+1])
-          lvls[k++] = (cols[i++] - _numOffsets[j]); // no useAllFactorLevels offset since it's tucked away in the count already
-        if( k>0 )
-          intLvls[j] = Arrays.copyOf(lvls,k);
-        ++j;
-      }
+    if( _interactionVecs!=null && _interactionVecs[j] >= _cats) {
+        while (i < cols.length && cols[i] < _numOffsets[intLvls.length]) {
+          int[] lvls = MemoryManager.malloc4(_numOffsets[j + 1] - _numOffsets[j]);
+          int k = 0; // same as above
+          while (i < cols.length && cols[i] < _numOffsets[j + 1])
+            lvls[k++] = (cols[i++] - _numOffsets[j]); // no useAllFactorLevels offset since it's tucked away in the count already
+          if (k > 0)
+            intLvls[j] = Arrays.copyOf(lvls, k);
+          ++j;
+        }
       int preIgnoredCnt=ignoredCnt;
       for(int k=0;k<intLvls.length;++k)
         if( null==intLvls[k] ) { ignoredCols[ignoredCnt++] = k+_cats; }
@@ -526,7 +529,7 @@ public class DataInfo extends Keyed<DataInfo> {
     }
 
     // now numerics
-    prev=j=_interactionVecs==null?0:_interactionVecs.length;
+    prev=j=_interactionVecs==null?0:(_interactionVecs[j]>=_cats?_interactionVecs.length:0);
     for(;i<cols.length;++i){
       int numsToIgnore = (cols[i]-_numOffsets[j]);
       for(int k=0;k<numsToIgnore;++k){
@@ -534,6 +537,8 @@ public class DataInfo extends Keyed<DataInfo> {
         ++j;
       }
       prev = ++j;
+      if (j > _numOffsets.length)
+        break;
     }
     for(int k = prev; k < _nums; ++k)
       ignoredCols[ignoredCnt++] = k+_cats;
@@ -1147,8 +1152,19 @@ public class DataInfo extends Keyed<DataInfo> {
   public int getInteractionOffset(Chunk[] chunks, int cid, int rid) {
     boolean useAllFactors = ((InteractionWrappedVec)chunks[cid].vec())._useAllFactorLevels;
     InteractionWrappedVec.InteractionWrappedChunk c = (InteractionWrappedVec.InteractionWrappedChunk)chunks[cid];
-    if(      c._c1IsCat ) return (int)c._c[0].at8(rid)-(useAllFactors?0:1);
-    else if( c._c2IsCat ) return (int)c._c[1].at8(rid)-(useAllFactors?0:1);
+    if (c._c1IsCat) {
+      if (!c._c[0].isNA(rid)) {
+        return (int)c._c[0].at8(rid)-(useAllFactors?0:1);
+      } else { // NA at c._c[0].at8(rid)
+        return (int)c._c[0].vec().mode()-(useAllFactors?0:1);
+      }
+    } else if (c._c2IsCat) {
+      if (!c._c[1].isNA(rid)) {
+        return (int)c._c[1].at8(rid)-(useAllFactors?0:1);
+      } else {
+        return (int)c._c[1].vec().mode()-(useAllFactors?0:1);
+      }
+    }
     return 0;
   }
   public Vec getWeightsVec(){return _adaptedFrame.vec(weightChunkId());}

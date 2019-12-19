@@ -111,9 +111,9 @@ public class InteractionWrappedVec extends WrappedVec {
       Chunk lC = cc._c[0]; Chunk rC = cc._c[1];  // get the "left" chk and the "rite" chk
       if( cc._c2IsCat ) { lC=rC; rC=cc._c[0]; }  // left is always cat
       long rows=0;
-      for(int rid=0;rid<c._len;++rid) {
-        if( lC.isNA(rid) || rC.isNA(rid) ) continue; // skipmissing
-        int idx = (int)lC.at8(rid);
+      for(int rid=0;rid<c._len;++rid) { 
+        if (rC.isNA(rid)) continue; // Only skip numerical row if it is NA in the mean calculation.
+        int idx = lC.isNA(rid)?lC.vec().mode():(int)lC.at8(rid); // left chunk is categorical
         rows++;
         for(int i=0;i<_d.length;++i) {
           double x = i==idx?rC.atd(rid):0;
