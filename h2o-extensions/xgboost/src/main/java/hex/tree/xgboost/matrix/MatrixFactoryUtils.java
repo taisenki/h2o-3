@@ -16,12 +16,18 @@ public class MatrixFactoryUtils {
         return j;
     }
 
-    public static int setResponseAndWeight(Chunk weightChunk, Chunk respChunk, float[] resp, float[] weights, int j, int i) {
+    public static int setResponseWeightAndOffset(
+        Chunk weightChunk, Chunk offsetChunk, Chunk respChunk, float[] resp, float[] weights, float [] offsets, 
+        int j, int i
+    ) {
         if (weightChunk != null) {
             if(weightChunk.atd(i) == 0) {
                 return j;
             }
             weights[j] = (float) weightChunk.atd(i);
+        }
+        if (offsetChunk != null) {
+            offsets[j] = (float) offsetChunk.atd(i);
         }
         resp[j++] = (float) respChunk.atd(i);
         return j;

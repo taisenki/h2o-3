@@ -54,11 +54,13 @@ public class XGBoostUtils {
                                                 Frame frame,
                                                 String response,
                                                 String weight,
+                                                String offset,
                                                 boolean sparse) throws XGBoostError {
         assert di != null;
         int[] chunks = VecUtils.getLocalChunkIds(frame.anyVec());
         final Vec responseVec = frame.vec(response);
         final Vec weightVec = frame.vec(weight);
+        final Vec offsetsVec = frame.vec(offset);
         final int[] nRowsByChunk = new int[chunks.length];
         final long nRowsL = sumChunksLength(chunks, responseVec, weightVec, nRowsByChunk);
         if (nRowsL > Integer.MAX_VALUE) {
@@ -74,15 +76,19 @@ public class XGBoostUtils {
         // but only if we want to handle datasets over 2^31-1 on a single machine. For now I'd leave it as it is.
         float[] resp = malloc4f(nRows);
         float[] weights = null;
+        float[] offsets = null;
         if (weightVec != null) {
             weights = malloc4f(nRows);
         }
+        if (offsetsVec != null) {
+            offsets = malloc4f(nRows);
+        }
         if (sparse) {
             Log.debug("Treating matrix as sparse.");
-            trainMat = SparseMatrixFactory.csr(frame, chunks, weightVec, responseVec, di, resp, weights);
+            trainMat = SparseMatrixFactory.csr(frame, chunks, weightVec, offsetsVec, responseVec, di, resp, weights, offsets);
         } else {
             Log.debug("Treating matrix as dense.");
-            trainMat = DenseMatrixFactory.dense(frame, chunks, nRows, nRowsByChunk, weightVec, responseVec, di, resp, weights);
+            trainMat = DenseMatrixFactory.dense(frame, chunks, nRows, nRowsByChunk, weightVec, offsetsVec, responseVec, di, resp, weights, offsets);
         }
 
         assert trainMat.rowNum() == nRows;
@@ -90,7 +96,9 @@ public class XGBoostUtils {
         if (weights != null) {
             trainMat.setWeight(weights);
         }
-
+        if (offsets != null) {
+            trainMat.setBaseMargin(offsets);
+        }
         return trainMat;
     }
 
