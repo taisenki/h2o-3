@@ -24,6 +24,8 @@ public class XGboostJavaBigScoreChunkPredict implements Model.BigScoreChunkPredi
 
   @Override
   public double[] score0(Chunk[] chks, double offset, int row_in_chunk, double[] tmp, double[] preds) {
+    if (offset != 0) throw new UnsupportedOperationException("Unsupported: offset != 0");
+
     assert _output.nfeatures() == tmp.length;
     for (int i = 0; i < tmp.length; i++) {
       tmp[i] = chks[i].atd(row_in_chunk);
