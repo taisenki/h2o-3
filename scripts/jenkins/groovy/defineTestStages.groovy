@@ -476,7 +476,8 @@ def call(final pipelineContext) {
             nodes: 4, xmx: "16G", extramem: "100",
             cloudingDir: "/user/jenkins/hadoop_multinode_tests"
           ],
-          [ nameNode: "mr-0xg5", hdpName: "steam2", krb: true,
+          [ distribution: "hdp", version: "2.4",
+            nameNode: "mr-0xg5", hdpName: "steam2", krb: true,
             nodes: 2, xmx: "8G", extramem: "10",
             cloudingDir: "/user/jenkins/hadoop_multinode_tests"
           ]
