@@ -93,7 +93,7 @@ private GString startH2OScript(final config, final branch) {
     return """
             rm -fv h2o_one_node h2odriver.log
             hdfs dfs -rm -r -f ${cloudingDir}
-            export NAME_NODE=${config.name_node}.0xdata.loc
+            export NAME_NODE=${config.nameNode}.0xdata.loc
             hadoop jar h2o-hadoop-*/h2o-${config.distribution}${config.version}-assembly/build/libs/h2odriver.jar \\
                 -disable_flow -ea \\
                 -clouding_method filesystem -clouding_dir ${cloudingDir} \\
