@@ -484,7 +484,7 @@ def call(final pipelineContext) {
   ]
   for (config in MULTINODE_CLUSTERS_CONFIGS) {
     def stage = [
-            stageName: "HADOOP MULTINODE TESTS ${config.distribution}${config.version} (${config.nameNode}${config.krb?", KRB":""})",
+            stageName: "TEST MULTINODE ${config.krb?"KRB ":""}(${config.distribution}${config.version}, ${config.nameNode})",
             target: "test-hadoop-multinode", timeoutValue: 60,
             component: pipelineContext.getBuildConfig().COMPONENT_ANY,
             additionalTestPackages: [
@@ -495,7 +495,6 @@ def call(final pipelineContext) {
             executionScript: 'h2o-3/scripts/jenkins/groovy/hadoopMultinodeStage.groovy',
             image: pipelineContext.getBuildConfig().getHadoopEdgeNodeImage(config.distribution, config.version)
     ]
-
     HADOOP_MULTINODE_STAGES += [ stage ]
   }
 
