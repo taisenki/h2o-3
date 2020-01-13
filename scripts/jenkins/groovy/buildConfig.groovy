@@ -316,8 +316,8 @@ class BuildConfig {
     return getSmokeHadoopImageImpl(distribution, version, krbSuffix)
   }
   
-  String getHadoopEdgeNodeImage() {
-    return getSmokeHadoopImageImpl("hdp", "2.2", "-0xd-edge")
+  String getHadoopEdgeNodeImage(final distribution, final version) {
+    return getSmokeHadoopImageImpl(distribution, version, "-0xd-edge")
   }
   
   String getSmokeHadoopImageImpl(final distribution, final version, final suffix) {
